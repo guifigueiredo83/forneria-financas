@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forneria Sofia — Gestão Financeira</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#0c0b09; --surface:#141210; --card:#1a1815; --border:#252220; --border-l:#302d2a;
+  --text:#ede8df; --muted:#7a7268; --dim:#3d3a36;
+  --green:#6dba7f; --green-bg:#0f2318; --green-b:#2d6a4f;
+  --red:#d96060; --red-bg:#2a1010;
+  --amber:#c9a054; --amber-bg:#261d08; --amber-b:#6a4a10;
+  --blue:#5fa8c8; --blue-bg:#0b1f2d; --blue-b:#1a4a7a;
+  --accent:#c8a06a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+button{cursor:pointer;border:none;font-family:inherit}
+input,select,textarea{font-family:inherit;outline:none}
+input:focus,select:focus{border-color:var(--accent)!important}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--surface)}
+::-webkit-scrollbar-thumb{background:var(--border-l);border-radius:3px}
+
+/* Header */
+#header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;position:sticky;top:0;z-index:100}
+.header-inner{max-width:1000px;margin:0 auto;display:flex;align-items:center;flex-wrap:wrap;gap:0}
+.logo{padding:12px 0;margin-right:24px}
+.logo-name{font-size:13px;font-weight:700;color:var(--accent);letter-spacing:-0.01em}
+.logo-sub{font-size:9px;color:var(--muted);font-family:monospace;letter-spacing:.1em}
+.tabs{display:flex;gap:0;overflow-x:auto;flex:1}
+.tab-btn{padding:14px 14px;background:transparent;font-size:12px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+.header-balances{display:flex;gap:14px;padding:8px 0;flex-shrink:0;margin-left:auto}
+.bal-item{text-align:right}
+.bal-label{font-size:9px;font-family:monospace;letter-spacing:.08em}
+.bal-value{font-size:14px;font-weight:700}
+.bal-sep{width:1px;background:var(--border)}
+
+/* Layout */
+.page{display:none;padding:24px 20px;max-width:1000px;margin:0 auto}
+.page.active{display:block}
+
+/* Cards */
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.card-pad{padding:20px}
+.section-label{font-size:10px;font-family:monospace;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:14px}
+
+/* KPI grid */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.kpi-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px}
+.kpi-card.pj{border-top:2px solid var(--green-b)}
+.kpi-card.pf{border-top:2px solid var(--blue-b)}
+.kpi-card.amber{border-top:2px solid var(--amber-b)}
+.kpi-label{font-size:10px;font-family:monospace;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.kpi-value{font-size:21px;font-weight:700;line-height:1;margin-bottom:3px}
+.kpi-sub{font-size:11px;color:var(--muted);font-family:monospace}
+
+/* Charts row */
+.charts-row{display:grid;grid-template-columns:1fr 300px;gap:14px;margin-bottom:20px}
+@media(max-width:680px){.charts-row{grid-template-columns:1fr}}
+
+/* Account summary row */
+.acc-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+@media(max-width:500px){.acc-row{grid-template-columns:1fr}}
+.acc-card{border-radius:10px;padding:16px 18px;border:1px solid}
+.acc-card.pj{background:var(--green-bg);border-color:var(--green-b)44}
+.acc-card.pf{background:var(--blue-bg);border-color:var(--blue-b)44}
+.acc-title{font-size:13px;font-weight:600;margin-bottom:10px}
+.acc-nums{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.acc-num label{font-size:10px;font-family:monospace;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:2px}
+.acc-num span{font-size:14px;font-weight:700}
+
+/* Account badge */
+.acc-pill{font-family:monospace;font-size:9px;letter-spacing:.08em;padding:2px 7px;border-radius:4px;text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
+.acc-pill.pj{background:var(--green-bg);color:var(--green);border:1px solid var(--green-b)44}
+.acc-pill.pf{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-b)44}
+
+/* Segment / toggle */
+.seg{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.seg-btn{padding:6px 14px;border-radius:6px;font-size:11px;font-weight:600;border:1px solid var(--border-l);background:transparent;color:var(--muted);transition:all .15s}
+.seg-btn.pj.active{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+.seg-btn.pf.active{border-color:var(--blue);background:var(--blue-bg);color:var(--blue)}
+.seg-btn.all.active{border-color:var(--amber);background:var(--amber-bg);color:var(--amber)}
+.seg-btn.red.active{border-color:var(--red);background:var(--red-bg);color:var(--red)}
+.seg-btn.green.active{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+
+/* Buttons */
+.btn{padding:8px 16px;border-radius:6px;font-family:monospace;font-size:11px;font-weight:600;letter-spacing:.06em;transition:opacity .15s;display:inline-flex;align-items:center;gap:6px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:var(--green);color:#0a1e12}
+.btn-blue{background:var(--blue);color:#081520}
+.btn-amber{background:var(--amber);color:#1a1008}
+.btn-ghost{background:transparent;border:1px solid var(--border-l);color:var(--text)}
+.btn-danger{background:var(--red);color:#1a0808}
+.btn-full{width:100%;justify-content:center;padding:10px}
+
+/* Form */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:500px){.form-grid{grid-template-columns:1fr}}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:10px;font-family:monospace;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.form-input{background:var(--surface);border:1px solid var(--border-l);border-radius:6px;color:var(--text);padding:8px 12px;font-size:13px;width:100%}
+.form-select{background:var(--surface);border:1px solid var(--border-l);border-radius:6px;color:var(--text);padding:8px 12px;font-size:13px;width:100%}
+.form-hint{font-size:11px;color:var(--amber);font-family:monospace;background:var(--amber-bg);border:1px solid var(--amber-b)44;border-radius:6px;padding:8px 12px;margin-bottom:12px}
+
+/* Transaction list */
+.tx-list{}
+.tx-item{display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-bottom:1px solid var(--border);gap:12px}
+.tx-item:last-child{border-bottom:none}
+.tx-item:hover{background:rgba(255,255,255,.02)}
+.tx-name{font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tx-meta{font-size:11px;color:var(--muted);font-family:monospace;display:flex;gap:8px;margin-top:2px;align-items:center;flex-wrap:wrap}
+.tx-amount{font-family:monospace;font-size:14px;font-weight:700;white-space:nowrap}
+.tx-amount.credit{color:var(--green)}
+.tx-amount.debit{color:var(--red)}
+.list-header{padding:10px 18px;border-bottom:1px solid var(--border);font-size:10px;font-family:monospace;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.empty-state{padding:50px;text-align:center;color:var(--dim);font-size:13px}
+
+/* Upload */
+.drop-zone{border:2px dashed var(--border-l);border-radius:12px;padding:50px 30px;text-align:center;cursor:pointer;transition:border-color .2s}
+.drop-zone:hover{border-color:var(--accent)}
+.drop-zone.pj{border-color:var(--green-b)}
+.drop-zone.pf{border-color:var(--blue-b)}
+.preview-table{overflow-x:auto}
+.preview-grid{display:grid;grid-template-columns:80px 1fr 170px 110px 30px;gap:8px;padding:8px 14px;align-items:center;border-bottom:1px solid var(--border)}
+.preview-grid.header{font-size:10px;font-family:monospace;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.preview-scroll{max-height:380px;overflow-y:auto}
+.preview-cat{background:var(--surface);border:1px solid var(--border-l);border-radius:4px;color:var(--text);font-size:11px;padding:3px 6px;width:100%}
+
+/* Parcelas */
+.inst-card{border-radius:10px;border:1px solid var(--border);margin-bottom:12px;overflow:hidden}
+.inst-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.inst-name{font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px}
+.inst-meta{font-size:11px;color:var(--muted);font-family:monospace}
+.inst-right{text-align:right;flex-shrink:0}
+.inst-left-val{font-size:18px;font-weight:700}
+.inst-paid{font-size:11px;color:var(--muted);font-family:monospace}
+.progress-bar{background:var(--border);border-radius:4px;height:6px;overflow:hidden;margin:10px 0 4px}
+.progress-fill{height:100%;border-radius:4px;transition:width .5s}
+.progress-pct{font-size:10px;font-family:monospace;color:var(--muted)}
+.inst-upcoming{padding:10px 20px;display:flex;gap:8px;flex-wrap:wrap}
+.upcoming-chip{background:var(--amber-bg);border:1px solid var(--amber-b)33;border-radius:6px;padding:5px 10px;font-size:11px;font-family:monospace}
+.upcoming-chip span{color:var(--muted)}
+.upcoming-chip b{color:var(--amber)}
+
+/* Settings */
+.settings-group{margin-bottom:24px}
+.settings-group h3{font-size:11px;font-family:monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.api-note{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:12px;padding:12px;background:var(--surface);border-radius:6px;border-left:3px solid var(--blue)}
+
+/* Modal */
+#modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:20px}
+#modal-overlay.open{display:flex}
+#modal{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+#modal h2{font-size:16px;margin-bottom:16px;color:var(--text)}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;right:24px;background:var(--green);color:#0a1e12;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none}
+#toast.show{opacity:1}
+
+/* Upcoming alert */
+.upcoming-alert{background:var(--amber-bg);border:1px solid var(--amber-b)44;border-radius:10px;padding:16px 18px;margin-bottom:20px}
+.upcoming-alert-title{font-size:10px;font-family:monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--amber);margin-bottom:10px}
+
+/* CSV paste area */
+.paste-area{background:var(--surface);border:1px solid var(--border-l);border-radius:6px;color:var(--text);padding:10px 12px;font-size:12px;font-family:monospace;width:100%;min-height:120px;resize:vertical}
+
+/* Steps */
+.step-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#1a0e04;font-size:11px;font-weight:700;flex-shrink:0}
+.step-row{display:flex;gap:12px;align-items:flex-start;margin-bottom:16px}
+.step-content{flex:1}
+.step-title{font-weight:600;font-size:13px;margin-bottom:3px}
+.step-desc{font-size:12px;color:var(--muted);line-height:1.5}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-name">Forneria Sofia</div>
+      <div class="logo-sub">GESTÃO FINANCEIRA</div>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('dashboard')">📊 Dashboard</button>
+      <button class="tab-btn" onclick="showTab('upload')">📤 Importar Extrato</button>
+      <button class="tab-btn" onclick="showTab('manual')">✏️ Lançamento</button>
+      <button class="tab-btn" onclick="showTab('parcelas')">📅 Parcelas</button>
+      <button class="tab-btn" onclick="showTab('settings')">⚙️ Config</button>
+    </div>
+    <div class="header-balances">
+      <div class="bal-item">
+        <div class="bal-label" style="color:var(--green)">🏭 PJ</div>
+        <div class="bal-value" id="hbal-pj">R$ 0,00</div>
+      </div>
+      <div class="bal-sep"></div>
+      <div class="bal-item">
+        <div class="bal-label" style="color:var(--blue)">👤 PF</div>
+        <div class="bal-value" id="hbal-pf">R$ 0,00</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page active">
+  <div class="seg" id="dash-view-seg">
+    <button class="seg-btn all active" onclick="setDashView('all')">🔀 Consolidado</button>
+    <button class="seg-btn pj" onclick="setDashView('pj')">🏭 Empresa (PJ)</button>
+    <button class="seg-btn pf" onclick="setDashView('pf')">👤 Pessoal (PF)</button>
+  </div>
+  <div class="kpi-grid" id="kpi-grid"></div>
+  <div class="acc-row" id="acc-row"></div>
+  <div class="charts-row">
+    <div class="card card-pad">
+      <div class="section-label">Fluxo Mensal</div>
+      <canvas id="chart-flow" height="160"></canvas>
+      <div id="chart-empty" class="empty-state" style="display:none;padding:30px">Importe um extrato para ver o gráfico</div>
+    </div>
+    <div class="card card-pad">
+      <div class="section-label">Saídas por Categoria</div>
+      <canvas id="chart-cat" height="160"></canvas>
+      <div id="cat-legend" style="margin-top:10px;display:flex;flex-direction:column;gap:4px"></div>
+      <div id="cat-empty" class="empty-state" style="display:none;padding:20px">Sem dados</div>
+    </div>
+  </div>
+  <div class="card" id="upcoming-alert-wrap" style="display:none;margin-bottom:20px">
+    <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
+      <div style="font-size:10px;font-family:monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--amber)">⚠️ Parcelas nos Próximos 30 Dias</div>
+    </div>
+    <div id="upcoming-list"></div>
+  </div>
+  <div class="card">
+    <div class="list-header">
+      <span>Lançamentos Recentes</span>
+      <button class="seg-btn all active" onclick="setTxFilter('all',this)" style="padding:3px 10px">Todos</button>
+      <button class="seg-btn green" onclick="setTxFilter('credit',this)" style="padding:3px 10px">Entradas</button>
+      <button class="seg-btn red" onclick="setTxFilter('debit',this)" style="padding:3px 10px">Saídas</button>
+    </div>
+    <div class="tx-list" id="tx-list"></div>
+  </div>
+</div>
+
+<!-- UPLOAD -->
+<div id="page-upload" class="page">
+  <div id="upload-step1">
+    <div class="card card-pad" style="margin-bottom:16px">
+      <div class="section-label">Passo 1 — De qual conta é este extrato?</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button onclick="selectUploadAcc('pj')" id="uacc-pj" style="padding:14px 24px;border-radius:8px;border:2px solid var(--green-b);background:var(--green-bg);color:var(--green);display:flex;flex-direction:column;align-items:center;gap:6px;min-width:160px;font-size:13px;font-weight:700">
+          <span style="font-size:26px">🏭</span> Empresa (PJ)<br><span style="font-size:11px;font-weight:400;color:var(--muted)">Sicredi, Bradesco, Itaú…</span>
+        </button>
+        <button onclick="selectUploadAcc('pf')" id="uacc-pf" style="padding:14px 24px;border-radius:8px;border:2px solid var(--border-l);background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:6px;min-width:160px;font-size:13px;font-weight:700">
+          <span style="font-size:26px">👤</span> Pessoal (PF)<br><span style="font-size:11px;font-weight:400">Nubank, Inter, C6…</span>
+        </button>
+      </div>
+    </div>
+    <div class="card card-pad" style="margin-bottom:16px">
+      <div class="section-label">Passo 2 — Como deseja importar?</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button onclick="setImportMode('api')" id="imode-api" style="padding:10px 20px;border-radius:6px;border:1px solid var(--green-b);background:var(--green-bg);color:var(--green);font-size:12px;font-weight:600">📄 Upload PDF/Imagem (IA)</button>
+        <button onclick="setImportMode('csv')" id="imode-csv" style="padding:10px 20px;border-radius:6px;border:1px solid var(--border-l);background:transparent;color:var(--muted);font-size:12px;font-weight:600">📋 Colar CSV / Texto</button>
+      </div>
+    </div>
+    <!-- API mode -->
+    <div id="import-api-section" class="card card-pad">
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Nome do Banco (opcional)</label>
+        <input id="u-bank" class="form-input" placeholder="ex: Sicredi" style="max-width:280px">
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label">Saldo Anterior (R$)</label>
+        <input id="u-saldo" class="form-input" placeholder="ex: 97333.39" type="number" step="0.01" style="max-width:200px">
+      </div>
+      <div id="upload-drop" class="drop-zone pj" onclick="document.getElementById('file-input').click()">
+        <div style="font-size:30px;margin-bottom:10px">📄</div>
+        <div style="font-size:15px;color:var(--green);font-weight:600;margin-bottom:6px">Arraste o extrato aqui</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">ou clique para selecionar · PDF ou imagem</div>
+        <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+          <span class="acc-pill pj">PDF</span><span class="acc-pill pj">PNG</span><span class="acc-pill pj">JPG</span>
+        </div>
+      </div>
+      <input type="file" id="file-input" accept=".pdf,image/*" style="display:none" onchange="handleFileSelect(this.files[0])">
+      <div id="upload-loading" style="display:none;padding:40px;text-align:center;color:var(--accent)">
+        <div style="font-size:28px;margin-bottom:10px">⏳</div>
+        <div style="font-size:14px;font-weight:600">Lendo o extrato com IA…</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px">Aguarde alguns segundos</div>
+      </div>
+      <div id="no-api-warn" style="display:none;margin-top:12px;color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-b)44;border-radius:8px;padding:12px 16px;font-size:13px">
+        ⚠️ Chave de API não configurada. Vá em ⚙️ Config e adicione sua chave Anthropic, ou use a opção "Colar CSV / Texto".
+      </div>
+    </div>
+    <!-- CSV mode -->
+    <div id="import-csv-section" class="card card-pad" style="display:none">
+      <div class="api-note">
+        📋 Cole aqui o CSV gerado pelo Claude ao processar seu extrato. Formato esperado:<br>
+        <code style="font-size:11px">data,descricao,valor,tipo<br>2026-05-04,Recebimento PIX,4565.21,credit</code>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">Saldo Anterior (R$)</label>
+        <input id="csv-saldo" class="form-input" placeholder="ex: 97333.39" type="number" step="0.01" style="max-width:200px">
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label class="form-label">Cole o CSV aqui</label>
+        <textarea id="csv-paste" class="paste-area" placeholder="data,descricao,valor,tipo&#10;2026-05-04,Recebimento PIX,4565.21,credit&#10;2026-05-04,Pagamento Fornecedor,1200.00,debit"></textarea>
+      </div>
+      <button class="btn btn-amber" onclick="parseCSV()">Processar CSV</button>
+    </div>
+  </div>
+
+  <!-- Preview -->
+  <div id="upload-preview" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px">
+      <div>
+        <div style="font-size:10px;font-family:monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Transações encontradas</div>
+        <div style="font-size:18px;font-weight:700" id="preview-count"></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="cancelPreview()">✕ Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmImport()">✓ Confirmar Importação</button>
+      </div>
+    </div>
+    <div class="card preview-table">
+      <div class="preview-grid header">
+        <span>Data</span><span>Descrição</span><span>Categoria</span><span style="text-align:right">Valor</span><span></span>
+      </div>
+      <div class="preview-scroll" id="preview-rows"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MANUAL ENTRY -->
+<div id="page-manual" class="page">
+  <div style="display:grid;grid-template-columns:1fr 360px;gap:20px" id="manual-layout">
+    <div class="card card-pad">
+      <div class="section-label">Novo Lançamento</div>
+      <!-- Account -->
+      <div style="margin-bottom:16px">
+        <div class="form-label" style="margin-bottom:8px">Conta</div>
+        <div class="seg" id="m-acc-seg">
+          <button class="seg-btn pj active" onclick="setManualAcc('pj',this)">🏭 Empresa (PJ)</button>
+          <button class="seg-btn pf" onclick="setManualAcc('pf',this)">👤 Pessoal (PF)</button>
+        </div>
+      </div>
+      <!-- Type -->
+      <div style="margin-bottom:16px">
+        <div class="form-label" style="margin-bottom:8px">Tipo</div>
+        <div class="seg" id="m-type-seg">
+          <button class="seg-btn red active" onclick="setManualType('debit',this)">↓ Saída / Despesa</button>
+          <button class="seg-btn green" onclick="setManualType('credit',this)">↑ Entrada / Receita</button>
+        </div>
+      </div>
+      <!-- Mode (debit only) -->
+      <div id="m-mode-wrap" style="margin-bottom:16px">
+        <div class="form-label" style="margin-bottom:8px">Pagamento</div>
+        <div class="seg" id="m-mode-seg">
+          <button class="seg-btn all active" onclick="setManualMode('avista',this)">À Vista</button>
+          <button class="seg-btn amber" onclick="setManualMode('parcelado',this)">Parcelado</button>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Descrição</label>
+          <input id="m-desc" class="form-input" placeholder="ex: Compra no Muffato">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Valor (R$)</label>
+          <input id="m-amount" class="form-input" placeholder="0,00" oninput="updateInstHint()">
+        </div>
+        <div class="form-group" id="m-date-group">
+          <label class="form-label">Data</label>
+          <input id="m-date" class="form-input" type="date">
+        </div>
+        <div class="form-group" id="m-start-group" style="display:none">
+          <label class="form-label">Data 1ª Parcela</label>
+          <input id="m-start" class="form-input" type="date">
+        </div>
+        <div class="form-group" id="m-inst-group" style="display:none">
+          <label class="form-label">Nº de Parcelas</label>
+          <input id="m-inst" class="form-input" type="number" min="2" max="60" value="2" oninput="updateInstHint()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Categoria</label>
+          <select id="m-cat" class="form-select"></select>
+        </div>
+      </div>
+      <div id="inst-hint" style="display:none" class="form-hint"></div>
+      <button class="btn btn-full btn-amber" id="m-submit" onclick="submitManual()">+ Lançar</button>
+    </div>
+    <div>
+      <div class="section-label">Últimos Lançamentos Manuais</div>
+      <div class="card"><div class="tx-list" id="manual-recent"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PARCELAS -->
+<div id="page-parcelas" class="page">
+  <div class="seg" id="inst-view-seg" style="margin-bottom:20px">
+    <button class="seg-btn all active" onclick="setInstView('all',this)">🔀 Todas</button>
+    <button class="seg-btn pj" onclick="setInstView('pj',this)">🏭 Empresa (PJ)</button>
+    <button class="seg-btn pf" onclick="setInstView('pf',this)">👤 Pessoal (PF)</button>
+  </div>
+  <div class="kpi-grid" id="inst-kpis" style="margin-bottom:20px"></div>
+  <div id="inst-list"></div>
+</div>
+
+<!-- SETTINGS -->
+<div id="page-settings" class="page">
+  <div style="max-width:600px">
+    <div class="card card-pad" style="margin-bottom:16px">
+      <div class="settings-group">
+        <h3>Empresa</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Nome da Empresa</label>
+            <input id="s-company" class="form-input" placeholder="Forneria Sofia Ltda">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nome do Responsável</label>
+            <input id="s-owner" class="form-input" placeholder="Guilherme">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Saldo inicial PJ (R$)</label>
+            <input id="s-saldo-pj" class="form-input" type="number" step="0.01" placeholder="97333.39">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Saldo inicial PF (R$)</label>
+            <input id="s-saldo-pf" class="form-input" type="number" step="0.01" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Piso de Caixa PJ (R$)</label>
+            <input id="s-floor" class="form-input" type="number" step="100" value="30000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pró-labore Mensal (R$)</label>
+            <input id="s-prolabore" class="form-input" type="number" step="100" value="9000">
+          </div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <h3>Integração com IA (upload de extratos PDF)</h3>
+        <div class="api-note">
+          Para fazer upload direto de PDFs de extrato, você precisa de uma chave de API da Anthropic.
+          Crie uma conta em <a href="https://console.anthropic.com" target="_blank" style="color:var(--blue)">console.anthropic.com</a>,
+          gere uma chave e cole abaixo. A chave fica salva <b>apenas no seu navegador</b>.
+        </div>
+        <div class="form-group">
+          <label class="form-label">Chave API Anthropic</label>
+          <input id="s-apikey" class="form-input" type="password" placeholder="sk-ant-…">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveSettings()">✓ Salvar Configurações</button>
+    </div>
+    <div class="card card-pad">
+      <div class="settings-group">
+        <h3>Backup dos Dados</h3>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-ghost" onclick="exportData()">⬇ Exportar JSON</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('import-json').click()">⬆ Restaurar JSON</button>
+          <button class="btn btn-danger" onclick="clearData()">🗑 Apagar Tudo</button>
+        </div>
+        <input type="file" id="import-json" accept=".json" style="display:none" onchange="importData(this.files[0])">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div id="modal">
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+// ── Constants ─────────────────────────────────────────────────────────────
+const CATS = {
+  pj: {
+    credit: ['Vendas / Receitas','PIX Recebido','iFood / Delivery','Cartão (crédito/débito)','Depósito ATM','Outras Receitas PJ'],
+    debit:  ['Mão de Obra (GMS)','Insumos / Matéria-Prima','Embalagens','Folha / Pessoal','Pró-Labore','Financiamentos PJ','Utilidades','Taxas Bancárias','Fornecedores','Compras Diversas PJ','Outros Débitos PJ']
+  },
+  pf: {
+    credit: ['Pró-Labore Recebido','Renda Extra','Outras Receitas PF'],
+    debit:  ['Moradia','Alimentação','Transporte','Saúde','Lazer','Dívida Pessoal','Compra à Vista PF','Compra Parcelada PF','Outros Débitos PF']
+  }
+};
+const PIE_COLORS = ['#d96060','#c9a054','#5fa8c8','#a07ed4','#6dba7f','#e08060'];
+
+// ── State ─────────────────────────────────────────────────────────────────
+let state = {
+  transactions: [],
+  installments: [],
+  settings: { company:'Forneria Sofia Ltda', owner:'Guilherme', saldoPJ:0, saldoPF:0, floor:30000, prolabore:9000, apiKey:'' },
+  dashView: 'all',
+  txFilter: 'all',
+  manualAcc: 'pj',
+  manualType: 'debit',
+  manualMode: 'avista',
+  uploadAcc: 'pj',
+  importMode: 'api',
+  instView: 'all',
+  pendingImport: []
+};
+let flowChart = null, catChart = null;
+
+// ── Storage ───────────────────────────────────────────────────────────────
+function loadState() {
+  try { state.transactions = JSON.parse(localStorage.getItem('sf_tx')||'[]'); } catch{}
+  try { state.installments = JSON.parse(localStorage.getItem('sf_inst')||'[]'); } catch{}
+  try { const s = JSON.parse(localStorage.getItem('sf_settings')||'{}'); state.settings = {...state.settings,...s}; } catch{}
+}
+function saveState() {
+  localStorage.setItem('sf_tx', JSON.stringify(state.transactions));
+  localStorage.setItem('sf_inst', JSON.stringify(state.installments));
+  localStorage.setItem('sf_settings', JSON.stringify(state.settings));
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+const today = () => new Date().toISOString().slice(0,10);
+const fmt = (v, sign=false) => {
+  const abs = Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(sign) return (v>=0?'+':'-')+' R$ '+abs;
+  return 'R$ '+abs;
+};
+const fmtShort = v => Math.abs(v)>=1000 ? 'R$'+(v/1000).toFixed(1)+'k' : 'R$'+v.toFixed(0);
+const monthKey = d => d.slice(0,7);
+const monthLabel = k => { const [y,m]=k.split('-'); return ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][+m-1]+'/'+y.slice(2); };
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function toast(msg, color='var(--green)') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.background = color; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 3000);
+}
+
+function balance(acc) {
+  const s = acc==='pj' ? state.settings.saldoPJ : state.settings.saldoPF;
+  return (s||0) + state.transactions.filter(t=>t.account===acc).reduce((sum,t)=>t.type==='credit'?sum+t.amount:sum-t.amount,0);
+}
+
+function currentMonthTx(acc) {
+  const cm = new Date().toISOString().slice(0,7);
+  return state.transactions.filter(t=>t.date.slice(0,7)===cm && (acc==='all'||t.account===acc));
+}
+
+// ── Tab navigation ────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>{ if(b.getAttribute('onclick').includes("'"+name+"'")) b.classList.add('active'); });
+  if(name==='dashboard') renderDashboard();
+  if(name==='parcelas') renderParcelas();
+  if(name==='manual') { renderManualRecent(); updateCategories(); }
+  if(name==='settings') loadSettingsForm();
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────
+function setDashView(v) {
+  state.dashView = v;
+  document.querySelectorAll('#dash-view-seg .seg-btn').forEach(b=>b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderDashboard();
+}
+function setTxFilter(f, btn) {
+  state.txFilter = f;
+  document.querySelectorAll('.list-header .seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderTxList();
+}
+
+function renderDashboard() {
+  updateHeaderBalances();
+  renderKPIs();
+  renderAccRow();
+  renderFlowChart();
+  renderCatChart();
+  renderUpcoming();
+  renderTxList();
+}
+
+function updateHeaderBalances() {
+  const pj = balance('pj'), pf = balance('pf');
+  const elPJ = document.getElementById('hbal-pj');
+  const elPF = document.getElementById('hbal-pf');
+  elPJ.textContent = fmt(pj);
+  elPJ.style.color = pj >= state.settings.floor ? 'var(--green)' : pj >= 0 ? 'var(--amber)' : 'var(--red)';
+  elPF.textContent = fmt(pf);
+  elPF.style.color = pf >= 0 ? 'var(--blue)' : 'var(--red)';
+}
+
+function renderKPIs() {
+  const v = state.dashView;
+  const pjBal = balance('pj'), pfBal = balance('pf');
+  const cm = v==='all' ? currentMonthTx('all') : currentMonthTx(v);
+  const inc = cm.filter(t=>t.type==='credit').reduce((s,t)=>s+t.amount,0);
+  const out = cm.filter(t=>t.type==='debit').reduce((s,t)=>s+t.amount,0);
+  const upcoming = getUpcoming(v);
+  let html = '';
+  if(v==='all') {
+    html += kpiHTML('🏭 Saldo Empresa (PJ)', fmt(pjBal), pjBal>=state.settings.floor?'var(--green)':pjBal>=0?'var(--amber)':'var(--red)', pjBal<state.settings.floor?'⚠️ Abaixo do piso R$ 30k':'✓ Acima do piso', 'pj');
+    html += kpiHTML('👤 Saldo Pessoal (PF)', fmt(pfBal), pfBal>=0?'var(--blue)':'var(--red)', '', 'pf');
+    html += kpiHTML('🔀 Total Consolidado', fmt(pjBal+pfBal), pjBal+pfBal>=0?'var(--amber)':'var(--red)', '', 'amber');
+  } else {
+    const bal = v==='pj'?pjBal:pfBal;
+    html += kpiHTML((v==='pj'?'🏭':'👤')+' Saldo '+(v==='pj'?'Empresa (PJ)':'Pessoal (PF)'), fmt(bal), bal>=(v==='pj'?state.settings.floor:0)?(v==='pj'?'var(--green)':'var(--blue)'):bal>=0?'var(--amber)':'var(--red)', v==='pj'&&bal<state.settings.floor?'⚠️ Abaixo do piso':'', v);
+    html += kpiHTML('Entradas (mês)', fmt(inc), 'var(--green)', cm.filter(t=>t.type==='credit').length+' transações', 'pj');
+    html += kpiHTML('Saídas (mês)', fmt(out), 'var(--red)', cm.filter(t=>t.type==='debit').length+' transações', '');
+  }
+  html += kpiHTML('📅 Parcelas (30d)', fmt(upcoming.reduce((s,u)=>s+u.amount,0)), 'var(--amber)', upcoming.length+' vencimentos', 'amber');
+  document.getElementById('kpi-grid').innerHTML = html;
+}
+function kpiHTML(label, value, color, sub, cls) {
+  return `<div class="kpi-card ${cls}"><div class="kpi-label">${esc(label)}</div><div class="kpi-value" style="color:${color}">${esc(value)}</div>${sub?`<div class="kpi-sub">${esc(sub)}</div>`:''}</div>`;
+}
+
+function renderAccRow() {
+  if(state.dashView !== 'all') { document.getElementById('acc-row').innerHTML=''; return; }
+  const cm = new Date().toISOString().slice(0,7);
+  let html = '';
+  ['pj','pf'].forEach(acc=>{
+    const txs = state.transactions.filter(t=>t.account===acc&&t.date.slice(0,7)===cm);
+    const inc = txs.filter(t=>t.type==='credit').reduce((s,t)=>s+t.amount,0);
+    const out = txs.filter(t=>t.type==='debit').reduce((s,t)=>s+t.amount,0);
+    const icon = acc==='pj'?'🏭':'👤', name = acc==='pj'?'Empresa (PJ)':'Pessoal (PF)';
+    const col = acc==='pj'?'var(--green)':'var(--blue)';
+    const net = inc-out;
+    html += `<div class="acc-card ${acc}">
+      <div class="acc-title" style="color:${col}">${icon} ${name}</div>
+      <div class="acc-nums">
+        <div class="acc-num"><label>Entradas</label><span style="color:var(--green)">${fmt(inc)}</span></div>
+        <div class="acc-num"><label>Saídas</label><span style="color:var(--red)">${fmt(out)}</span></div>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);display:flex;justify-content:space-between">
+        <span style="font-size:11px;color:var(--muted);font-family:monospace">Resultado</span>
+        <span style="font-size:13px;font-weight:700;color:${net>=0?'var(--green)':'var(--red)'};font-family:monospace">${fmt(net,true)}</span>
+      </div>
+    </div>`;
+  });
+  document.getElementById('acc-row').innerHTML = html;
+}
+
+function renderFlowChart() {
+  const v = state.dashView;
+  const monthly = {};
+  state.transactions.filter(t=>v==='all'||t.account===v).forEach(t=>{
+    const k=monthKey(t.date);
+    if(!monthly[k]) monthly[k]={in:0,out:0};
+    t.type==='credit'?monthly[k].in+=t.amount:monthly[k].out+=t.amount;
+  });
+  const keys = Object.keys(monthly).sort().slice(-6);
+  const isEmpty = keys.length===0;
+  document.getElementById('chart-empty').style.display = isEmpty?'block':'none';
+  document.getElementById('chart-flow').style.display = isEmpty?'none':'block';
+  if(isEmpty) { if(flowChart){flowChart.destroy();flowChart=null;} return; }
+  const data = { labels: keys.map(monthLabel), datasets: [
+    { label:'Entradas', data: keys.map(k=>monthly[k].in), backgroundColor:'#6dba7f', borderRadius:4 },
+    { label:'Saídas',   data: keys.map(k=>monthly[k].out), backgroundColor:'#d96060', borderRadius:4 }
+  ]};
+  if(flowChart) { flowChart.data=data; flowChart.update(); return; }
+  flowChart = new Chart(document.getElementById('chart-flow'), {
+    type:'bar', data,
+    options:{ responsive:true, plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmt(ctx.raw)}}},
+      scales:{ x:{ticks:{color:'#7a7268',font:{size:10}},grid:{display:false}}, y:{ticks:{color:'#7a7268',font:{size:10},callback:fmtShort},grid:{color:'#252220'}} } }
+  });
+}
+
+function renderCatChart() {
+  const v = state.dashView;
+  const cm = new Date().toISOString().slice(0,7);
+  const catMap = {};
+  state.transactions.filter(t=>t.date.slice(0,7)===cm&&t.type==='debit'&&(v==='all'||t.account===v)).forEach(t=>{
+    const c=t.category||'Outros'; catMap[c]=(catMap[c]||0)+t.amount;
+  });
+  const entries = Object.entries(catMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const isEmpty = entries.length===0;
+  document.getElementById('cat-empty').style.display = isEmpty?'block':'none';
+  document.getElementById('chart-cat').style.display = isEmpty?'none':'block';
+  document.getElementById('cat-legend').style.display = isEmpty?'none':'flex';
+  if(isEmpty) { if(catChart){catChart.destroy();catChart=null;} return; }
+  const data = { labels: entries.map(e=>e[0]), datasets:[{data:entries.map(e=>e[1]),backgroundColor:PIE_COLORS,borderWidth:0}] };
+  if(catChart){catChart.destroy();}
+  catChart = new Chart(document.getElementById('chart-cat'),{type:'doughnut',data,
+    options:{responsive:false,cutout:'55%',plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fmt(ctx.raw)}}}}
+  });
+  document.getElementById('cat-legend').innerHTML = entries.map((e,i)=>
+    `<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px">
+      <div style="display:flex;align-items:center;gap:6px"><div style="width:8px;height:8px;border-radius:2px;background:${PIE_COLORS[i]};flex-shrink:0"></div><span style="color:var(--muted);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e[0])}</span></div>
+      <span style="font-family:monospace;font-size:10px">${fmt(e[1])}</span>
+    </div>`).join('');
+}
+
+function getUpcoming(acc) {
+  return state.installments.filter(i=>acc==='all'||i.account===acc)
+    .flatMap(i=>(i.schedule||[]).filter(s=>!s.paid&&new Date(s.date)>new Date()&&new Date(s.date)<new Date(Date.now()+30*864e5)).map(s=>({...s,instName:i.description,account:i.account})))
+    .sort((a,b)=>a.date.localeCompare(b.date));
+}
+function renderUpcoming() {
+  const list = getUpcoming(state.dashView);
+  const wrap = document.getElementById('upcoming-alert-wrap');
+  const ul = document.getElementById('upcoming-list');
+  if(!list.length){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  ul.innerHTML = list.map((u,i)=>`
+    <div class="tx-item">
+      <div style="flex:1">
+        <div class="tx-name">${esc(u.instName)}</div>
+        <div class="tx-meta"><span>Parcela ${u.num} · ${u.date}</span><span class="acc-pill ${u.account}">${u.account==='pj'?'🏭 PJ':'👤 PF'}</span></div>
+      </div>
+      <div class="tx-amount debit">${fmt(u.amount)}</div>
+    </div>`).join('');
+}
+
+function renderTxList() {
+  const v = state.dashView, f = state.txFilter;
+  let txs = [...state.transactions].sort((a,b)=>b.date.localeCompare(a.date));
+  if(v!=='all') txs = txs.filter(t=>t.account===v);
+  if(f!=='all') txs = txs.filter(t=>t.type===f);
+  txs = txs.slice(0,25);
+  const el = document.getElementById('tx-list');
+  if(!txs.length){el.innerHTML='<div class="empty-state">Nenhum lançamento. Importe um extrato ou faça um lançamento manual.</div>';return;}
+  el.innerHTML = txs.map(tx=>`
+    <div class="tx-item">
+      <div style="flex:1;min-width:0">
+        <div class="tx-name">${esc(tx.description)}</div>
+        <div class="tx-meta">
+          <span>${tx.date}</span>
+          ${tx.category?`<span style="color:var(--dim)">· ${esc(tx.category)}</span>`:''}
+          <span class="acc-pill ${tx.account}">${tx.account==='pj'?'🏭 PJ':'👤 PF'}</span>
+          ${tx.source==='extrato'?'<span style="font-family:monospace;font-size:9px;color:var(--blue)">extrato</span>':''}
+          ${tx.source==='parcela'?'<span style="font-family:monospace;font-size:9px;color:var(--amber)">parcela</span>':''}
+        </div>
+      </div>
+      <div class="tx-amount ${tx.type}">${tx.type==='credit'?'+':'-'} ${fmt(tx.amount)}</div>
+    </div>`).join('');
+}
+
+// ── Upload / Import ───────────────────────────────────────────────────────
+function selectUploadAcc(acc) {
+  state.uploadAcc = acc;
+  const pj=document.getElementById('uacc-pj'), pf=document.getElementById('uacc-pf');
+  if(acc==='pj'){pj.style.borderColor='var(--green-b)';pj.style.background='var(--green-bg)';pj.style.color='var(--green)';pf.style.borderColor='var(--border-l)';pf.style.background='transparent';pf.style.color='var(--muted)';}
+  else{pf.style.borderColor='var(--blue-b)';pf.style.background='var(--blue-bg)';pf.style.color='var(--blue)';pj.style.borderColor='var(--border-l)';pj.style.background='transparent';pj.style.color='var(--muted)';}
+  document.getElementById('upload-drop').className='drop-zone '+acc;
+}
+function setImportMode(mode) {
+  state.importMode = mode;
+  document.getElementById('import-api-section').style.display = mode==='api'?'block':'none';
+  document.getElementById('import-csv-section').style.display = mode==='csv'?'block':'none';
+  document.getElementById('imode-api').style.borderColor = mode==='api'?'var(--green-b)':'var(--border-l)';
+  document.getElementById('imode-api').style.background = mode==='api'?'var(--green-bg)':'transparent';
+  document.getElementById('imode-api').style.color = mode==='api'?'var(--green)':'var(--muted)';
+  document.getElementById('imode-csv').style.borderColor = mode==='csv'?'var(--amber-b)':'var(--border-l)';
+  document.getElementById('imode-csv').style.background = mode==='csv'?'var(--amber-bg)':'transparent';
+  document.getElementById('imode-csv').style.color = mode==='csv'?'var(--amber)':'var(--muted)';
+}
+
+function handleFileSelect(file) {
+  if(!file) return;
+  if(!state.settings.apiKey){document.getElementById('no-api-warn').style.display='block';return;}
+  document.getElementById('upload-drop').style.display='none';
+  document.getElementById('upload-loading').style.display='block';
+  document.getElementById('no-api-warn').style.display='none';
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const base64 = reader.result.split(',')[1];
+      const res = await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':state.settings.apiKey,'anthropic-version':'2023-06-01'},
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:4000,messages:[{role:'user',content:[
+          {type:'document',source:{type:'base64',media_type:file.type||'application/pdf',data:base64}},
+          {type:'text',text:'Extraia TODAS as transações deste extrato bancário. Retorne SOMENTE JSON válido sem markdown:\n{"saldo_anterior":0,"transactions":[{"date":"YYYY-MM-DD","description":"descrição em português","amount":1234.56,"type":"credit ou debit"}]}\nRules: amount positivo. type=credit para entradas, debit para saídas.'}
+        ]}]})
+      });
+      const data = await res.json();
+      if(data.error) throw new Error(data.error.message);
+      const text = data.content.map(b=>b.text||'').join('');
+      const parsed = JSON.parse(text.replace(/```json|```/g,'').trim());
+      if(parsed.saldo_anterior && !document.getElementById('u-saldo').value)
+        document.getElementById('u-saldo').value = parsed.saldo_anterior;
+      showPreview(parsed.transactions);
+    } catch(e) {
+      alert('Erro ao processar: '+e.message);
+    } finally {
+      document.getElementById('upload-drop').style.display='block';
+      document.getElementById('upload-loading').style.display='none';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function parseCSV() {
+  const text = document.getElementById('csv-paste').value.trim();
+  if(!text){toast('Cole o CSV primeiro','var(--red)');return;}
+  const lines = text.split('\n').filter(l=>l.trim());
+  const isHeader = lines[0].toLowerCase().includes('data')||lines[0].toLowerCase().includes('date');
+  const rows = isHeader ? lines.slice(1) : lines;
+  const txs = [];
+  rows.forEach(row=>{
+    const parts = row.split(',').map(p=>p.trim().replace(/"/g,''));
+    if(parts.length<4) return;
+    const [date,description,amount,type] = parts;
+    const amt = parseFloat(amount);
+    if(!date||!description||isNaN(amt)) return;
+    txs.push({date:date.includes('/')?date.split('/').reverse().join('-'):date, description, amount:Math.abs(amt), type: type.toLowerCase().includes('credit')?'credit':'debit'});
+  });
+  if(!txs.length){toast('Nenhuma transação encontrada','var(--red)');return;}
+  showPreview(txs);
+}
+
+function showPreview(txs) {
+  const acc = state.uploadAcc;
+  state.pendingImport = txs.map(tx=>({
+    ...tx, id:uid(), source:'extrato', account:acc,
+    bank: document.getElementById('u-bank')?.value||'',
+    importDate: today(),
+    category: tx.type==='credit' ? CATS[acc].credit[0] : CATS[acc].debit[0]
+  }));
+  document.getElementById('upload-step1').style.display='none';
+  document.getElementById('upload-preview').style.display='block';
+  document.getElementById('preview-count').innerHTML = `<span style="color:var(--${acc==='pj'?'green':'blue}')}">${state.pendingImport.length} lançamentos</span>`;
+  renderPreviewRows();
+}
+
+function renderPreviewRows() {
+  const acc = state.uploadAcc;
+  document.getElementById('preview-rows').innerHTML = state.pendingImport.map((tx,i)=>`
+    <div class="preview-grid" style="background:${i%2===0?'transparent':'var(--surface)'}">
+      <div style="font-family:monospace;font-size:11px;color:var(--muted)">${tx.date.slice(5)}</div>
+      <div style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(tx.description)}</div>
+      <select class="preview-cat" onchange="updatePendingCat('${tx.id}',this.value)">
+        ${CATS[acc][tx.type==='credit'?'credit':'debit'].map(c=>`<option value="${esc(c)}" ${c===tx.category?'selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+      <div style="font-family:monospace;font-size:12px;text-align:right;color:${tx.type==='credit'?'var(--green)':'var(--red)'};font-weight:700">${tx.type==='credit'?'+':'-'}${fmt(tx.amount)}</div>
+      <button onclick="removePending('${tx.id}')" style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:13px">✕</button>
+    </div>`).join('');
+}
+function updatePendingCat(id,cat){state.pendingImport=state.pendingImport.map(t=>t.id===id?{...t,category:cat}:t);}
+function removePending(id){state.pendingImport=state.pendingImport.filter(t=>t.id!==id);renderPreviewRows();document.getElementById('preview-count').innerHTML=`<span>${state.pendingImport.length} lançamentos</span>`;}
+
+function confirmImport() {
+  const acc = state.uploadAcc;
+  const saldo = parseFloat((document.getElementById('u-saldo')||document.getElementById('csv-saldo'))?.value||0);
+  const ids = new Set(state.transactions.map(t=>t.description+t.date+t.amount+t.account));
+  const unique = state.pendingImport.filter(t=>!ids.has(t.description+t.date+t.amount+t.account));
+  state.transactions.push(...unique);
+  if(saldo>0 && state.settings[acc==='pj'?'saldoPJ':'saldoPF']===0)
+    state.settings[acc==='pj'?'saldoPJ':'saldoPF'] = saldo;
+  saveState();
+  toast(`✓ ${unique.length} transações importadas!`);
+  cancelPreview();
+  showTab('dashboard');
+}
+function cancelPreview() {
+  state.pendingImport=[];
+  document.getElementById('upload-step1').style.display='block';
+  document.getElementById('upload-preview').style.display='none';
+  if(document.getElementById('u-saldo')) document.getElementById('u-saldo').value='';
+}
+
+// ── Manual entry ──────────────────────────────────────────────────────────
+function setManualAcc(acc, btn) {
+  state.manualAcc = acc;
+  document.querySelectorAll('#m-acc-seg .seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  updateCategories();
+}
+function setManualType(type, btn) {
+  state.manualType = type;
+  document.querySelectorAll('#m-type-seg .seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('m-mode-wrap').style.display = type==='debit'?'block':'none';
+  if(type==='credit') setManualMode('avista',null);
+  updateCategories();
+  const sb = document.getElementById('m-submit');
+  sb.className = 'btn btn-full '+(type==='credit'?'btn-primary':'btn-amber');
+}
+function setManualMode(mode, btn) {
+  state.manualMode = mode;
+  if(btn){document.querySelectorAll('#m-mode-seg .seg-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
+  const isParc = mode==='parcelado';
+  document.getElementById('m-date-group').style.display = isParc?'none':'block';
+  document.getElementById('m-start-group').style.display = isParc?'block':'none';
+  document.getElementById('m-inst-group').style.display = isParc?'block':'none';
+  updateInstHint();
+}
+function updateCategories() {
+  const cats = CATS[state.manualAcc][state.manualType==='credit'?'credit':'debit'];
+  const sel = document.getElementById('m-cat');
+  sel.innerHTML = cats.map(c=>`<option>${esc(c)}</option>`).join('');
+}
+function updateInstHint() {
+  const hint = document.getElementById('inst-hint');
+  if(state.manualMode!=='parcelado'||state.manualType!=='debit'){hint.style.display='none';return;}
+  const amt = parseFloat(document.getElementById('m-amount').value.replace(',','.'))||0;
+  const n = parseInt(document.getElementById('m-inst').value)||2;
+  if(amt>0){hint.style.display='block';hint.textContent=`${n}x de ${fmt(amt/n)} · Total ${fmt(amt)}`;}
+  else hint.style.display='none';
+}
+function submitManual() {
+  const desc = document.getElementById('m-desc').value.trim();
+  const amt = parseFloat(document.getElementById('m-amount').value.replace(',','.'))||0;
+  if(!desc||amt<=0){toast('Preencha descrição e valor','var(--red)');return;}
+  const acc=state.manualAcc, type=state.manualType, mode=state.manualMode, cat=document.getElementById('m-cat').value;
+  if(mode==='parcelado'&&type==='debit') {
+    const n = parseInt(document.getElementById('m-inst').value)||2;
+    const start = document.getElementById('m-start').value||today();
+    const instId = uid();
+    const schedule = Array.from({length:n},(_,i)=>{
+      const d=new Date(start); d.setMonth(d.getMonth()+i);
+      return {num:i+1,date:d.toISOString().slice(0,10),amount:+(amt/n).toFixed(2),paid:false};
+    });
+    state.installments.push({id:instId,description:desc,totalAmount:amt,installmentValue:+(amt/n).toFixed(2),totalInstallments:n,account:acc,category:cat,schedule,createdAt:today()});
+    schedule.forEach(s=>state.transactions.push({id:uid(),date:s.date,description:`${desc} (${s.num}/${n})`,amount:s.amount,type:'debit',category:cat,source:'parcela',installmentId:instId,installmentNum:s.num,account:acc,importDate:today()}));
+    toast(`✓ ${n} parcelas lançadas`);
+  } else {
+    const date = document.getElementById('m-date').value||today();
+    state.transactions.push({id:uid(),date,description:desc,amount:amt,type,category:cat,source:'manual',account:acc,importDate:today()});
+    toast('✓ Lançamento adicionado');
+  }
+  saveState();
+  document.getElementById('m-desc').value='';
+  document.getElementById('m-amount').value='';
+  document.getElementById('inst-hint').style.display='none';
+  renderManualRecent();
+  updateHeaderBalances();
+}
+function renderManualRecent() {
+  const txs = [...state.transactions].filter(t=>t.source==='manual'||t.source==='parcela').sort((a,b)=>b.importDate?.localeCompare(a.importDate)).slice(0,8);
+  const el = document.getElementById('manual-recent');
+  if(!txs.length){el.innerHTML='<div class="empty-state">Nenhum lançamento manual ainda</div>';return;}
+  el.innerHTML = txs.map(tx=>`
+    <div class="tx-item">
+      <div style="flex:1;min-width:0">
+        <div class="tx-name">${esc(tx.description)}</div>
+        <div class="tx-meta"><span>${tx.date}</span><span class="acc-pill ${tx.account}">${tx.account==='pj'?'🏭 PJ':'👤 PF'}</span></div>
+      </div>
+      <div class="tx-amount ${tx.type}">${tx.type==='credit'?'+':'-'} ${fmt(tx.amount)}</div>
+    </div>`).join('');
+}
+
+// ── Parcelas ──────────────────────────────────────────────────────────────
+function setInstView(v, btn) {
+  state.instView = v;
+  document.querySelectorAll('#inst-view-seg .seg-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderParcelas();
+}
+function renderParcelas() {
+  const v = state.instView;
+  const list = state.installments.filter(i=>v==='all'||i.account===v).map(inst=>{
+    const paid = state.transactions.filter(t=>t.installmentId===inst.id&&new Date(t.date)<=new Date()).length;
+    return {...inst,paidCount:paid,remaining:inst.totalInstallments-paid};
+  });
+  const totalLeft = list.reduce((s,i)=>s+i.remaining*i.installmentValue,0);
+  document.getElementById('inst-kpis').innerHTML =
+    kpiHTML('Total Restante', fmt(totalLeft), 'var(--amber)', 'em todas as parcelas', 'amber') +
+    kpiHTML('Compras Parceladas', String(list.length), 'var(--text)', list.filter(i=>i.remaining>0).length+' ativas', '');
+  const el = document.getElementById('inst-list');
+  if(!list.length){el.innerHTML='<div class="card"><div class="empty-state">Nenhuma compra parcelada cadastrada.<br>Vá em ✏️ Lançamento e escolha "Parcelado".</div></div>';return;}
+  el.innerHTML = list.map(inst=>{
+    const pct = Math.round((inst.paidCount/inst.totalInstallments)*100);
+    const col = inst.account==='pj'?'var(--green)':'var(--blue)';
+    const next = (inst.schedule||[]).filter(s=>!s.paid&&new Date(s.date)>new Date()).slice(0,3);
+    return `<div class="inst-card">
+      <div class="inst-header">
+        <div style="flex:1">
+          <div class="inst-name" style="display:flex;align-items:center;gap:8px">${esc(inst.description)} <span class="acc-pill ${inst.account}">${inst.account==='pj'?'🏭 PJ':'👤 PF'}</span></div>
+          <div class="inst-meta">${inst.totalInstallments}x de ${fmt(inst.installmentValue)} · Total ${fmt(inst.totalAmount)}</div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${pct===100?'var(--green)':col}"></div></div>
+          <div class="progress-pct">${pct}% pago · ${inst.paidCount}/${inst.totalInstallments} parcelas</div>
+        </div>
+        <div class="inst-right">
+          <div class="inst-left-val" style="color:${inst.remaining>0?'var(--amber)':'var(--green)'}">${inst.remaining>0?fmt(inst.remaining*inst.installmentValue):'✓ Quitado'}</div>
+          <div class="inst-paid">${inst.remaining} restantes</div>
+        </div>
+      </div>
+      ${next.length?`<div class="inst-upcoming">${next.map(s=>`<div class="upcoming-chip"><span>Parcela ${s.num} · ${s.date} · </span><b>${fmt(s.amount)}</b></div>`).join('')}</div>`:''}
+    </div>`;
+  }).join('');
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────
+function loadSettingsForm() {
+  const s = state.settings;
+  document.getElementById('s-company').value = s.company||'';
+  document.getElementById('s-owner').value = s.owner||'';
+  document.getElementById('s-saldo-pj').value = s.saldoPJ||'';
+  document.getElementById('s-saldo-pf').value = s.saldoPF||'';
+  document.getElementById('s-floor').value = s.floor||30000;
+  document.getElementById('s-prolabore').value = s.prolabore||9000;
+  document.getElementById('s-apikey').value = s.apiKey||'';
+}
+function saveSettings() {
+  state.settings.company = document.getElementById('s-company').value;
+  state.settings.owner = document.getElementById('s-owner').value;
+  state.settings.saldoPJ = parseFloat(document.getElementById('s-saldo-pj').value)||0;
+  state.settings.saldoPF = parseFloat(document.getElementById('s-saldo-pf').value)||0;
+  state.settings.floor = parseFloat(document.getElementById('s-floor').value)||30000;
+  state.settings.prolabore = parseFloat(document.getElementById('s-prolabore').value)||9000;
+  state.settings.apiKey = document.getElementById('s-apikey').value.trim();
+  saveState();
+  document.querySelector('.logo-name').textContent = state.settings.company || 'Forneria Sofia';
+  toast('✓ Configurações salvas');
+}
+
+// ── Backup ────────────────────────────────────────────────────────────────
+function exportData() {
+  const data = JSON.stringify({transactions:state.transactions,installments:state.installments,settings:state.settings,exportedAt:new Date().toISOString()},null,2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  a.download = 'forneria-sofia-backup-'+today()+'.json';
+  a.click();
+  toast('✓ Backup exportado');
+}
+function importData(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if(d.transactions) state.transactions = d.transactions;
+      if(d.installments) state.installments = d.installments;
+      if(d.settings) state.settings = {...state.settings,...d.settings};
+      saveState(); toast('✓ Dados restaurados'); renderDashboard();
+    } catch { toast('Arquivo inválido','var(--red)'); }
+  };
+  r.readAsText(file);
+}
+function clearData() {
+  if(!confirm('Apagar TODOS os dados? Esta ação não pode ser desfeita.')) return;
+  state.transactions=[]; state.installments=[];
+  saveState(); renderDashboard(); toast('Dados apagados','var(--amber)');
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+
+// ── Drag & drop ───────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{
+  const drop = document.getElementById('upload-drop');
+  if(drop){
+    drop.addEventListener('dragover',e=>{e.preventDefault();drop.style.borderStyle='solid';});
+    drop.addEventListener('dragleave',()=>{drop.style.borderStyle='dashed';});
+    drop.addEventListener('drop',e=>{e.preventDefault();drop.style.borderStyle='dashed';handleFileSelect(e.dataTransfer.files[0]);});
+  }
+  // default dates
+  const today_ = today();
+  document.getElementById('m-date').value = today_;
+  document.getElementById('m-start').value = today_;
+  updateCategories();
+  loadState();
+  renderDashboard();
+  document.querySelector('.logo-name').textContent = state.settings.company || 'Forneria Sofia';
+});
+</script>
+</body>
+</html>
