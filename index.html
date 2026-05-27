@@ -305,6 +305,7 @@ nav{display:flex;overflow-x:auto;flex:1}
     <div style="width:1px;background:var(--border)"></div>
     <div class="hbal"><div class="hbal-l" style="color:var(--blu)">👤 PF</div><div class="hbal-v" id="hb-pf">R$ 0,00</div></div>
   </div>
+  <button class="logout-btn" id="btn-reload" style="margin-right:6px">🔄</button>
   <button class="logout-btn" id="btn-logout">Sair</button>
 </div>
 
@@ -525,6 +526,7 @@ nav{display:flex;overflow-x:auto;flex:1}
       <div class="slbl">Backup</div>
       <div style="display:flex;gap:9px;flex-wrap:wrap">
         <button class="btn bgh" id="btn-export">⬇ Exportar JSON</button>
+        <button class="btn ba" id="btn-dedup" style="margin-right:6px">🧹 Remover Duplicatas</button>
         <button class="btn br" id="btn-clear">🗑 Apagar Tudo</button>
       </div>
     </div>
@@ -660,7 +662,7 @@ async function insertDefaultCats() {
 // ─── CRUD ─────────────────────────────────────────────────────────────────
 async function saveTx(tx) {
   var row = {id:tx.id, user_id:USER.id, date:tx.date, description:tx.description, amount:tx.amount, type:tx.type, category:tx.category||null, account:tx.account, source:tx.source||null, bank:tx.bank||null, installment_id:tx.installmentId||null, import_date:tx.importDate||null};
-  var {error} = await SB.from('transactions').upsert(row);
+  var {error} = await SB.from('transactions').upsert(row, {onConflict:'id'});
   if (error) throw error;
 }
 async function deleteTx(id) {
@@ -1001,21 +1003,45 @@ async function confirmImport_() {
   var acc=ST.uAcc;
   var sEl=g('ofx-saldo')||g('pdf-saldo')||g('csv-saldo');
   var saldo=sEl?parseFloat(sEl.value)||0:0;
+
+  // De-duplicate against existing DB
   var seen={};
   DB.tx.forEach(function(t){seen[t.description+t.date+t.amount+t.account]=true;});
   var newTxs=ST.pending.filter(function(t){
     var k=t.description+t.date+t.amount+t.account; return !seen[k];
   });
   if(!newTxs.length){toast('Todos os lançamentos já existem');cancelPreview_();return;}
-  // Save to Supabase
+
+  var btn=g('btn-prev-confirm');
+  btn.textContent='Salvando…'; btn.disabled=true;
+
   try {
-    for(var i=0;i<newTxs.length;i++) { await saveTx(newTxs[i]); DB.tx.unshift(newTxs[i]); }
-    if(saldo>0&&!DB.cfg[acc==='pj'?'sPJ':'sPF']){
+    // Batch insert — all at once
+    var rows=newTxs.map(function(tx){
+      return {id:tx.id,user_id:USER.id,date:tx.date,description:tx.description,
+        amount:tx.amount,type:tx.type,category:tx.category||null,account:tx.account,
+        source:tx.source||null,bank:tx.bank||null,installment_id:tx.installmentId||null,
+        import_date:tx.importDate||null};
+    });
+    var {error}=await SB.from('transactions').upsert(rows,{onConflict:'id'});
+    if(error) throw error;
+
+    // Fix saldo inicial if needed
+    if(saldo>0 && !(acc==='pj'?DB.cfg.sPJ:DB.cfg.sPF)){
       DB.cfg[acc==='pj'?'sPJ':'sPF']=saldo; await saveCfg();
     }
-    toast('✓ '+newTxs.length+' transações importadas');
-    cancelPreview_(); goPage('dashboard');
-  } catch(e){ toast('Erro ao salvar: '+e.message,'#d96060'); }
+
+    toast('✓ '+newTxs.length+' transações salvas — recarregando…');
+    cancelPreview_();
+
+    // Full reload from Supabase to guarantee consistency
+    await sbLoad();
+    renderDash();
+  } catch(e){
+    toast('Erro ao salvar: '+e.message,'#d96060');
+  } finally {
+    btn.textContent='✓ Confirmar'; btn.disabled=false;
+  }
 }
 
 function cancelPreview_() {
@@ -1064,7 +1090,9 @@ async function submitManual_() {
       toast('✓ Lançamento adicionado');
     }
     g('m-desc').value=''; g('m-amt').value=''; g('m-hint').style.display='none';
-    renderMRecent(); updateHBals();
+    // Reload to guarantee consistency
+    await sbLoad();
+    renderDash(); renderMRecent();
   } catch(e){toast('Erro: '+e.message,'#d96060');}
 }
 
@@ -1178,15 +1206,22 @@ async function saveEdit_() {
   var type=g('e-type').value, acc=g('e-acc').value, cat=g('e-cat').value;
   if(!desc||amt<=0){toast('Preencha todos os campos','#d96060');return;}
   DB.tx=DB.tx.map(function(t){return t.id===EDIT_TX_ID?Object.assign({},t,{date:date,amount:amt,description:desc,type:type,account:acc,category:cat}):t;});
-  try{var tx=DB.tx.find(function(t){return t.id===EDIT_TX_ID;});await saveTx(tx);toast('✓ Atualizado');}
-  catch(e){toast('Erro: '+e.message,'#d96060');}
+  try{
+    var tx=DB.tx.find(function(t){return t.id===EDIT_TX_ID;});
+    await saveTx(tx);
+    await sbLoad();
+    toast('✓ Atualizado');
+  }catch(e){toast('Erro: '+e.message,'#d96060');}
   closeEditModal_(); renderTxPage(); updateHBals();
 }
 async function deleteEdit_() {
   if(!EDIT_TX_ID) return;
   if(!confirm('Excluir este lançamento?')) return;
-  try{await deleteTx(EDIT_TX_ID);DB.tx=DB.tx.filter(function(t){return t.id!==EDIT_TX_ID;});toast('✓ Excluído');}
-  catch(e){toast('Erro: '+e.message,'#d96060');}
+  try{
+    await deleteTx(EDIT_TX_ID);
+    await sbLoad();
+    toast('✓ Excluído');
+  }catch(e){toast('Erro: '+e.message,'#d96060');}
   closeEditModal_(); renderTxPage(); updateHBals();
 }
 function closeEditModal_() { EDIT_TX_ID=null; g('edit-modal').classList.remove('on'); }
@@ -1352,6 +1387,13 @@ function bindAll() {
   g('link-to-login').addEventListener('click',function(){showErr('reg-err','');showScreen('login');});
 
   // ── Logout ──
+  g('btn-reload').addEventListener('click', async function(){
+    g('btn-reload').textContent='⏳';
+    try{ await sbLoad(); renderDash(); toast('✓ Dados recarregados'); }
+    catch(e){ toast('Erro: '+e.message,'#d96060'); }
+    finally{ g('btn-reload').textContent='🔄'; }
+  });
+
   g('btn-logout').addEventListener('click', async function(){
     if(!confirm('Sair da sua conta?')) return;
     await SB.auth.signOut(); USER=null; DB={tx:[],inst:[],cats:[],cfg:{}};
@@ -1505,6 +1547,26 @@ function bindAll() {
   g('btn-save-cfg').addEventListener('click',saveCfgFn_);
   g('btn-save-api').addEventListener('click',saveApiFn_);
   g('btn-export').addEventListener('click',exportData_);
+  g('btn-dedup').addEventListener('click', async function(){
+    if(!confirm('Verificar e remover transações duplicadas? Isso não pode ser desfeito.')) return;
+    var btn=g('btn-dedup'); btn.textContent='Removendo…'; btn.disabled=true;
+    try{
+      // Find duplicates by description+date+amount+account, keep first occurrence
+      var seen={}, toDelete=[];
+      var sorted=[...DB.tx].sort(function(a,b){return (a.import_date||'').localeCompare(b.import_date||'');});
+      sorted.forEach(function(t){
+        var k=t.description+t.date+t.amount+t.account;
+        if(seen[k]) toDelete.push(t.id);
+        else seen[k]=true;
+      });
+      if(!toDelete.length){toast('Nenhuma duplicata encontrada ✓');return;}
+      for(var i=0;i<toDelete.length;i++) await deleteTx(toDelete[i]);
+      await sbLoad(); renderDash();
+      toast('✓ '+toDelete.length+' duplicatas removidas');
+    }catch(e){toast('Erro: '+e.message,'#d96060');}
+    finally{btn.textContent='🧹 Remover Duplicatas';btn.disabled=false;}
+  });
+
   g('btn-clear').addEventListener('click',function(){
     if(!confirm('Apagar TODOS os dados locais? Os dados no Supabase não serão afetados.')) return;
     DB={tx:[],inst:[],cats:[],cfg:{}}; renderDash(); toast('Dados locais limpos','#c9a054');
